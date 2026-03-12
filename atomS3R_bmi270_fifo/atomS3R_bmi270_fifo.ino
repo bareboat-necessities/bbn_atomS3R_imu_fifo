@@ -5,6 +5,7 @@ BMI270 imu;
 
 constexpr uint8_t BMI270_I2C_ADDR = BMI2_I2C_PRIM_ADDR; // 0x68
 constexpr uint16_t FIFO_WATERMARK_FRAMES = 20;
+constexpr bool READ_FIFO_SINGLE_SAMPLE_DEFAULT = true;
 constexpr uint8_t BMM150_I2C_ADDR = 0x10;
 constexpr uint8_t BMM150_CHIP_ID_REG = 0x40;
 constexpr uint8_t BMM150_CHIP_ID = 0x32;
@@ -190,9 +191,11 @@ void loop()
   uint16_t fifoLength = 0;
   imu.getFIFOLength(&fifoLength);
 
-  if (fifoLength >= FIFO_WATERMARK_FRAMES)
+  const uint16_t targetFramesPerRead = READ_FIFO_SINGLE_SAMPLE_DEFAULT ? 1 : FIFO_WATERMARK_FRAMES;
+
+  if (fifoLength >= targetFramesPerRead)
   {
-    uint16_t framesRead = FIFO_WATERMARK_FRAMES;
+    uint16_t framesRead = targetFramesPerRead;
     imu.getFIFOData(fifoFrames, &framesRead);
 
     if (framesRead > 0)
