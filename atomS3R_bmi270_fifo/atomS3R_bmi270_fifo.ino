@@ -15,6 +15,14 @@ constexpr uint8_t BMM150_Z_REP_REG = 0x52;
 constexpr uint8_t BMM150_DATA_X_LSB_REG = 0x42;
 
 BMI270_SensorData fifoFrames[FIFO_WATERMARK_FRAMES];
+constexpr float STANDARD_GRAVITY_MPS2 = 9.80665f;
+
+bool hasLastImuTimestamp = false;
+uint32_t lastImuTimestampMs = 0;
+
+bool hasLastMagTimestamp = false;
+uint32_t lastMagTimestampMs = 0;
+uint8_t lastAuxData[BMI2_AUX_NUM_BYTES] = {0};
 
 int16_t signExtend(int16_t value, uint8_t bits)
 {
@@ -31,6 +39,35 @@ void decodeBMM150Raw(const uint8_t auxData[BMI2_AUX_NUM_BYTES], int16_t &magX, i
   magX = signExtend(rawX, 13);
   magY = signExtend(rawY, 13);
   magZ = signExtend(rawZ, 15);
+}
+
+bool auxDataChanged(const uint8_t auxData[BMI2_AUX_NUM_BYTES])
+{
+  for (uint8_t i = 0; i < BMI2_AUX_NUM_BYTES; ++i)
+  {
+    if (auxData[i] != lastAuxData[i])
+    {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void updateLastAuxData(const uint8_t auxData[BMI2_AUX_NUM_BYTES])
+{
+  for (uint8_t i = 0; i < BMI2_AUX_NUM_BYTES; ++i)
+  {
+    lastAuxData[i] = auxData[i];
+  }
+}
+
+void sensorToNED(float sensorX, float sensorY, float sensorZ, float &north, float &east, float &down)
+{
+  // Convert ENU-style body axes to NED: N=Y, E=X, D=-Z.
+  north = sensorY;
+  east = sensorX;
+  down = -sensorZ;
 }
 
 bool configureBMM150Aux()
@@ -161,27 +198,71 @@ void loop()
     if (framesRead > 0)
     {
       const BMI270_SensorData &latest = fifoFrames[framesRead - 1];
-      const BMI270_SensorData &oldest = fifoFrames[0];
+      const uint32_t latestTsMs = latest.sensorTimeMillis;
+
+      float imuDeltaMs = 0.0f;
+      if (hasLastImuTimestamp)
+      {
+        imuDeltaMs = static_cast<float>(latestTsMs - lastImuTimestampMs);
+      }
+      hasLastImuTimestamp = true;
+      lastImuTimestampMs = latestTsMs;
 
       int16_t magX = 0;
       int16_t magY = 0;
       int16_t magZ = 0;
       decodeBMM150Raw(latest.auxData, magX, magY, magZ);
 
+      float magDeltaMs = 0.0f;
+      bool magUpdated = auxDataChanged(latest.auxData);
+      if (magUpdated)
+      {
+        if (hasLastMagTimestamp)
+        {
+          magDeltaMs = static_cast<float>(latestTsMs - lastMagTimestampMs);
+        }
+
+        hasLastMagTimestamp = true;
+        lastMagTimestampMs = latestTsMs;
+        updateLastAuxData(latest.auxData);
+      }
+
+      float accNorth = 0.0f;
+      float accEast = 0.0f;
+      float accDown = 0.0f;
+      sensorToNED(
+        latest.accelX * STANDARD_GRAVITY_MPS2,
+        latest.accelY * STANDARD_GRAVITY_MPS2,
+        latest.accelZ * STANDARD_GRAVITY_MPS2,
+        accNorth,
+        accEast,
+        accDown);
+
+      float gyrNorth = 0.0f;
+      float gyrEast = 0.0f;
+      float gyrDown = 0.0f;
+      sensorToNED(latest.gyroX, latest.gyroY, latest.gyroZ, gyrNorth, gyrEast, gyrDown);
+
+      float magNorth = 0.0f;
+      float magEast = 0.0f;
+      float magDown = 0.0f;
+      sensorToNED(static_cast<float>(magX), static_cast<float>(magY), static_cast<float>(magZ), magNorth, magEast, magDown);
+
       Serial.printf(
-        "FIFO batch=%u ts=%lu..%lu ms | acc[g] %.3f %.3f %.3f | gyro[dps] %.3f %.3f %.3f | mag_raw %d %d %d\n",
+        "FIFO batch=%u | dt_imu_ms=%.2f | dt_mag_ms=%s%.2f | acc_ned[m/s^2] N=%.3f E=%.3f D=%.3f | gyro_ned[dps] N=%.3f E=%.3f D=%.3f | mag_ned[raw] N=%.1f E=%.1f D=%.1f\n",
         framesRead,
-        static_cast<unsigned long>(oldest.sensorTimeMillis),
-        static_cast<unsigned long>(latest.sensorTimeMillis),
-        latest.accelX,
-        latest.accelY,
-        latest.accelZ,
-        latest.gyroX,
-        latest.gyroY,
-        latest.gyroZ,
-        magX,
-        magY,
-        magZ
+        imuDeltaMs,
+        magUpdated ? "" : "~",
+        magUpdated ? magDeltaMs : 0.0f,
+        accNorth,
+        accEast,
+        accDown,
+        gyrNorth,
+        gyrEast,
+        gyrDown,
+        magNorth,
+        magEast,
+        magDown
       );
     }
   }
