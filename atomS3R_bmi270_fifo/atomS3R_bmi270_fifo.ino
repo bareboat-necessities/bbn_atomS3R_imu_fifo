@@ -116,8 +116,8 @@ void configureFIFO()
   BMI270_FIFOConfig fifoConfig;
   fifoConfig.flags = BMI2_FIFO_ACC_EN | BMI2_FIFO_GYR_EN | BMI2_FIFO_AUX_EN | BMI2_FIFO_TIME_EN;
   fifoConfig.watermark = FIFO_WATERMARK_FRAMES;
-  fifoConfig.accelDownSample = BMI2_FIFO_NO_DOWN_SAMPLING;
-  fifoConfig.gyroDownSample = BMI2_FIFO_NO_DOWN_SAMPLING;
+  fifoConfig.accelDownSample = BMI2_FIFO_DOWN_SAMPLE_1;
+  fifoConfig.gyroDownSample = BMI2_FIFO_DOWN_SAMPLE_1;
   fifoConfig.accelFilter = BMI2_ENABLE;
   fifoConfig.gyroFilter = BMI2_ENABLE;
   fifoConfig.selfWakeUp = BMI2_ENABLE;
