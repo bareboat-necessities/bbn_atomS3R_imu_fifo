@@ -1,0 +1,33 @@
+name: Arduino Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install ESP32 core
+        run: |
+          arduino-cli config init --overwrite
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+
+      - name: Install libraries
+        run: |
+          arduino-cli lib update-index
+          arduino-cli lib install "SparkFun BMI270 Arduino Library"
+
+      - name: Compile AtomS3R sketch
+        run: |
+          arduino-cli compile \
+            --fqbn esp32:esp32:m5stack_atoms3 \
+            atomS3R_bmi270_fifo
