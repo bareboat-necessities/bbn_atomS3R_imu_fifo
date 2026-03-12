@@ -7,6 +7,12 @@ This repo contains an Arduino `.ino` project for reading BMI270 IMU data through
 - `atomS3R_bmi270_fifo/atomS3R_bmi270_fifo.ino` – configures BMI270 FIFO (accel + gyro) and prints buffered frames over serial.
 - `.github/workflows/arduino-build.yml` – GitHub Actions workflow that installs Arduino CLI, the ESP32 core, SparkFun BMI270 library, and compiles the sketch.
 
+## AtomS3R hardware notes
+
+- The internal BMI270/BMM150 sensor chain on AtomS3R is reached on the internal sensor I2C bus (`SDA=GPIO47`, `SCL=GPIO45`).
+- The sketch initializes `Wire` explicitly with `Wire.begin(47, 45, 400000)` and passes that bus to `imu.beginI2C(...)`.
+- Magnetometer values printed from `auxData[]` are raw/uncompensated BMM150 readings intended for bring-up/debug timing.
+
 ## Build target
 
 The workflow compiles for FQBN:

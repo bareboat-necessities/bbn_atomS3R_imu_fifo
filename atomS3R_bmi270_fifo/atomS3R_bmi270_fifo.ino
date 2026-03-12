@@ -5,7 +5,9 @@ BMI270 imu;
 
 constexpr uint8_t BMI270_I2C_ADDR = BMI2_I2C_PRIM_ADDR; // 0x68
 constexpr uint16_t FIFO_WATERMARK_FRAMES = 20;
-constexpr bool READ_FIFO_SINGLE_SAMPLE_DEFAULT = true;
+constexpr uint8_t ATOMS3R_SENSOR_SDA_PIN = 47;
+constexpr uint8_t ATOMS3R_SENSOR_SCL_PIN = 45;
+constexpr uint32_t ATOMS3R_SENSOR_I2C_HZ = 400000;
 constexpr uint8_t BMM150_I2C_ADDR = 0x10;
 constexpr uint8_t BMM150_CHIP_ID_REG = 0x40;
 constexpr uint8_t BMM150_CHIP_ID = 0x32;
@@ -169,9 +171,9 @@ void setup()
   delay(1000);
   Serial.println("M5Stack AtomS3R BMI270 FIFO demo (+BMM150 aux)");
 
-  Wire.begin();
+  Wire.begin(ATOMS3R_SENSOR_SDA_PIN, ATOMS3R_SENSOR_SCL_PIN, ATOMS3R_SENSOR_I2C_HZ);
 
-  while (imu.beginI2C(BMI270_I2C_ADDR) != BMI2_OK)
+  while (imu.beginI2C(BMI270_I2C_ADDR, Wire) != BMI2_OK)
   {
     Serial.println("BMI270 init failed. Retrying in 1 second...");
     delay(1000);
@@ -191,11 +193,15 @@ void loop()
   uint16_t fifoLength = 0;
   imu.getFIFOLength(&fifoLength);
 
-  const uint16_t targetFramesPerRead = READ_FIFO_SINGLE_SAMPLE_DEFAULT ? 1 : FIFO_WATERMARK_FRAMES;
-
-  if (fifoLength >= targetFramesPerRead)
+  if (fifoLength > 0)
   {
-    uint16_t framesRead = targetFramesPerRead;
+    // Drain all currently buffered data in one read (bounded by local buffer).
+    uint16_t framesRead = fifoLength;
+    if (framesRead > FIFO_WATERMARK_FRAMES)
+    {
+      framesRead = FIFO_WATERMARK_FRAMES;
+    }
+
     imu.getFIFOData(fifoFrames, &framesRead);
 
     if (framesRead > 0)
