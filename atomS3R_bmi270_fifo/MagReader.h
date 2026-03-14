@@ -34,7 +34,8 @@ public:
     auxConfig.cfg.aux.odr = BMI2_AUX_ODR_12_5HZ;
     auxConfig.cfg.aux.i2c_device_addr = kBmm150I2cAddr;
     auxConfig.cfg.aux.read_addr = kBmm150DataXLsbReg;
-    auxConfig.cfg.aux.fcu_write_en = BMI2_DISABLE;
+    // Allow forwarding writes to the external AUX device.
+    auxConfig.cfg.aux.fcu_write_en = BMI2_ENABLE;
     auxConfig.cfg.aux.offset = 0;
 
     if (imu.setConfig(auxConfig) != BMI2_OK)
@@ -83,7 +84,15 @@ public:
     return true;
   }
 
-  Sample readFromAux(const uint8_t /*fifoAuxData*/[BMI2_AUX_NUM_BYTES], uint32_t sampleTimestampMs)
+
+  static float rawToMicroTesla(int16_t rawValue)
+  {
+    // BMM150 compensated output is commonly represented at ~16 LSB per uT.
+    // We expose a simple bring-up conversion for log readability.
+    return static_cast<float>(rawValue) * kMicroTeslaPerLsb;
+  }
+
+  Sample readFromAux(const uint8_t fifoAuxData[BMI2_AUX_NUM_BYTES], uint32_t sampleTimestampMs)
   {
     Sample sample = lastSample;
 
@@ -94,17 +103,17 @@ public:
       return sample;
     }
 
-    if (imuSensor->readAux(kBmm150DataXLsbReg, BMI2_AUX_NUM_BYTES) != BMI2_OK)
+    int16_t magX = 0;
+    int16_t magY = 0;
+    int16_t magZ = 0;
+    decodeBMM150Raw(fifoAuxData, magX, magY, magZ);
+
+    if (!isDataReady(fifoAuxData))
     {
       sample.updated = false;
       sample.deltaMs = 0.0f;
       return sample;
     }
-
-    int16_t magX = 0;
-    int16_t magY = 0;
-    int16_t magZ = 0;
-    decodeBMM150Raw(imuSensor->data.auxData, magX, magY, magZ);
 
     const bool changed = !hasLastMagSample || magX != lastSample.x || magY != lastSample.y || magZ != lastSample.z;
     if (!changed)
@@ -141,6 +150,7 @@ private:
   static constexpr uint8_t kBmm150XyRepReg = 0x51;
   static constexpr uint8_t kBmm150ZRepReg = 0x52;
   static constexpr uint8_t kBmm150DataXLsbReg = 0x42;
+  static constexpr float kMicroTeslaPerLsb = 1.0f / 16.0f;
 
   static int16_t signExtend(int16_t value, uint8_t bits)
   {
@@ -157,6 +167,12 @@ private:
     magX = signExtend(rawX, 13);
     magY = signExtend(rawY, 13);
     magZ = signExtend(rawZ, 15);
+  }
+
+  static bool isDataReady(const uint8_t auxData[BMI2_AUX_NUM_BYTES])
+  {
+    // BMM150 RHALL/STATUS byte: DRDY bit indicates a fresh sample is present.
+    return (auxData[6] & 0x01) != 0;
   }
 
 

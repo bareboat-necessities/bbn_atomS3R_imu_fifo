@@ -71,9 +71,8 @@ public:
     imu.setGyroODR(BMI2_GYR_ODR_100HZ);
 
     BMI270_FIFOConfig fifoConfig;
-    // Keep FIFO to IMU streams only. AUX reads are performed explicitly through
-    // MagReader, which avoids frame parsing misalignment from mixed AUX frames.
-    fifoConfig.flags = BMI2_FIFO_ACC_EN | BMI2_FIFO_GYR_EN | BMI2_FIFO_TIME_EN;
+    // Include AUX frames so BMM150 samples are time-correlated with IMU data.
+    fifoConfig.flags = BMI2_FIFO_ACC_EN | BMI2_FIFO_GYR_EN | BMI2_FIFO_AUX_EN | BMI2_FIFO_TIME_EN;
     fifoConfig.watermark = watermarkFrames;
     fifoConfig.accelDownSample = BMI2_FIFO_DOWN_SAMPLE_1;
     fifoConfig.gyroDownSample = BMI2_FIFO_DOWN_SAMPLE_1;
@@ -138,12 +137,12 @@ public:
     hasLastImuTimestamp = true;
     lastImuTimestampMs = sample.timestampMs;
 
-    // The SparkFun BMI270 library already reports acceleration in m/s^2.
-    // Do not scale by g again.
-    sample.accelX = latest.accelX;
-    sample.accelY = latest.accelY;
-    sample.accelZ = latest.accelZ;
+    // SparkFun BMI270 reports acceleration in g; convert to SI units.
+    sample.accelX = latest.accelX * kStandardGravity;
+    sample.accelY = latest.accelY * kStandardGravity;
+    sample.accelZ = latest.accelZ * kStandardGravity;
 
+    // SparkFun BMI270 reports gyro in deg/s.
     sample.gyroX = latest.gyroX;
     sample.gyroY = latest.gyroY;
     sample.gyroZ = latest.gyroZ;
@@ -167,6 +166,7 @@ public:
 
 private:
   static constexpr uint32_t kImuFramePeriodMs = 10;
+  static constexpr float kStandardGravity = 9.80665f;
 
   BMI270 imu;
   BMI270_SensorData fifoFrames[kDefaultFifoWatermarkFrames];
