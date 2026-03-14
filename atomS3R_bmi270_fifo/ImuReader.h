@@ -71,7 +71,9 @@ public:
     imu.setGyroODR(BMI2_GYR_ODR_100HZ);
 
     BMI270_FIFOConfig fifoConfig;
-    fifoConfig.flags = BMI2_FIFO_ACC_EN | BMI2_FIFO_GYR_EN | BMI2_FIFO_AUX_EN | BMI2_FIFO_TIME_EN;
+    // Keep FIFO to IMU streams only. AUX reads are performed explicitly through
+    // MagReader, which avoids frame parsing misalignment from mixed AUX frames.
+    fifoConfig.flags = BMI2_FIFO_ACC_EN | BMI2_FIFO_GYR_EN | BMI2_FIFO_TIME_EN;
     fifoConfig.watermark = watermarkFrames;
     fifoConfig.accelDownSample = BMI2_FIFO_DOWN_SAMPLE_1;
     fifoConfig.gyroDownSample = BMI2_FIFO_DOWN_SAMPLE_1;
@@ -128,7 +130,9 @@ public:
         sample.timestampMs = lastImuTimestampMs + timestampDeltaMs;
       }
 
-      sample.imuDeltaMs = static_cast<float>(timestampDeltaMs);
+      // Report per-sample IMU period rather than per-batch elapsed time.
+      // This keeps dt stable even when FIFO drains 2-3 frames at once.
+      sample.imuDeltaMs = static_cast<float>(timestampDeltaMs) / static_cast<float>(framesRead);
     }
 
     hasLastImuTimestamp = true;
