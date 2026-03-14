@@ -108,18 +108,37 @@ public:
     const BMI270_SensorData &latest = fifoFrames[framesRead - 1];
     sample.valid = true;
     sample.framesRead = framesRead;
+
     sample.timestampMs = latest.sensorTimeMillis;
 
     if (hasLastImuTimestamp)
     {
-      sample.imuDeltaMs = static_cast<float>(sample.timestampMs - lastImuTimestampMs);
+      uint32_t timestampDeltaMs = 0;
+
+      if (sample.timestampMs > lastImuTimestampMs)
+      {
+        timestampDeltaMs = sample.timestampMs - lastImuTimestampMs;
+      }
+
+      // If FIFO sensor time is missing or non-monotonic, estimate elapsed time
+      // from the number of frames drained at the configured 100 Hz ODR.
+      if (timestampDeltaMs == 0)
+      {
+        timestampDeltaMs = framesRead * kImuFramePeriodMs;
+        sample.timestampMs = lastImuTimestampMs + timestampDeltaMs;
+      }
+
+      sample.imuDeltaMs = static_cast<float>(timestampDeltaMs);
     }
+
     hasLastImuTimestamp = true;
     lastImuTimestampMs = sample.timestampMs;
 
-    sample.accelX = latest.accelX * kStandardGravityMps2;
-    sample.accelY = latest.accelY * kStandardGravityMps2;
-    sample.accelZ = latest.accelZ * kStandardGravityMps2;
+    // The SparkFun BMI270 library already reports acceleration in m/s^2.
+    // Do not scale by g again.
+    sample.accelX = latest.accelX;
+    sample.accelY = latest.accelY;
+    sample.accelZ = latest.accelZ;
 
     sample.gyroX = latest.gyroX;
     sample.gyroY = latest.gyroY;
@@ -143,7 +162,7 @@ public:
   BMI270 &sensor() { return imu; }
 
 private:
-  static constexpr float kStandardGravityMps2 = 9.80665f;
+  static constexpr uint32_t kImuFramePeriodMs = 10;
 
   BMI270 imu;
   BMI270_SensorData fifoFrames[kDefaultFifoWatermarkFrames];
