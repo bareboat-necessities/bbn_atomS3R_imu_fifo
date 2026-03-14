@@ -7,6 +7,7 @@ class ImuReader
 {
 public:
   static constexpr uint8_t kDefaultI2cAddress = BMI2_I2C_PRIM_ADDR;
+  static constexpr uint8_t kAlternateI2cAddress = BMI2_I2C_SEC_ADDR;
   static constexpr uint16_t kDefaultFifoWatermarkFrames = 20;
 
   struct Sample
@@ -26,13 +27,29 @@ public:
 
   bool begin(TwoWire &wire, uint8_t i2cAddress = kDefaultI2cAddress)
   {
-    while (imu.beginI2C(i2cAddress, wire) != BMI2_OK)
+    uint8_t addressesToTry[2] = {i2cAddress, kAlternateI2cAddress};
+    if (i2cAddress == kAlternateI2cAddress)
     {
-      Serial.println("BMI270 init failed. Retrying in 1 second...");
-      delay(1000);
+      addressesToTry[1] = kDefaultI2cAddress;
     }
 
-    return true;
+    while (true)
+    {
+      for (const uint8_t address : addressesToTry)
+      {
+        if (imu.beginI2C(address, wire) == BMI2_OK)
+        {
+          Serial.printf("BMI270 detected at I2C address 0x%02X\n", address);
+          return true;
+        }
+      }
+
+      Serial.printf(
+        "BMI270 init failed on 0x%02X and 0x%02X. Retrying in 1 second...\n",
+        addressesToTry[0],
+        addressesToTry[1]);
+      delay(1000);
+    }
   }
 
   void configureFIFO(uint16_t watermarkFrames = kDefaultFifoWatermarkFrames)
