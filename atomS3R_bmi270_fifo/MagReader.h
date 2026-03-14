@@ -23,40 +23,16 @@ public:
       return false;
     }
 
-    bmi2_sens_config auxConfig{};
-    auxConfig.type = BMI2_AUX;
-    auxConfig.cfg.aux.aux_en = BMI2_ENABLE;
-    // Keep AUX in manual mode and fetch magnetometer bytes explicitly.
-    auxConfig.cfg.aux.manual_en = BMI2_ENABLE;
-    // Read a full BMM150 data frame per AUX transaction.
-    auxConfig.cfg.aux.man_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_8;
-    auxConfig.cfg.aux.aux_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_8;
-    auxConfig.cfg.aux.odr = BMI2_AUX_ODR_12_5HZ;
-    auxConfig.cfg.aux.i2c_device_addr = kBmm150I2cAddr;
-    auxConfig.cfg.aux.read_addr = kBmm150DataXLsbReg;
-    // Allow forwarding writes to the external AUX device.
-    auxConfig.cfg.aux.fcu_write_en = BMI2_ENABLE;
-    auxConfig.cfg.aux.offset = 0;
-
-    if (imu.setConfig(auxConfig) != BMI2_OK)
-    {
-      Serial.println("Failed to configure BMI270 AUX auto mode.");
-      return false;
-    }
-
     imu.setAuxPullUps(BMI2_ASDA_PUPSEL_2K);
 
-    if (imu.readAux(kBmm150ChipIdReg, 1) != BMI2_OK)
+    uint8_t detectedAddress = 0;
+    if (!probeAndConfigureAddress(imu, detectedAddress))
     {
-      Serial.println("Failed to read BMM150 chip ID.");
+      Serial.println("Failed to detect BMM150 on BMI270 AUX bus.");
       return false;
     }
 
-    if (imu.data.auxData[0] != kBmm150ChipId)
-    {
-      Serial.printf("Unexpected BMM150 chip ID: 0x%02X\n", imu.data.auxData[0]);
-      return false;
-    }
+    bmm150I2cAddr = detectedAddress;
 
     if (imu.writeAux(kBmm150PowerCtrlReg, 0x01) != BMI2_OK)
     {
@@ -80,7 +56,7 @@ public:
     }
 
     delay(20);
-    Serial.println("BMM150 initialized over BMI270 AUX manual-read mode.");
+    Serial.printf("BMM150 initialized over BMI270 AUX manual-read mode (addr=0x%02X).\n", bmm150I2cAddr);
     return true;
   }
 
@@ -135,7 +111,6 @@ public:
   }
 
 private:
-  static constexpr uint8_t kBmm150I2cAddr = 0x10;
   static constexpr uint8_t kBmm150ChipIdReg = 0x40;
   static constexpr uint8_t kBmm150ChipId = 0x32;
   static constexpr uint8_t kBmm150PowerCtrlReg = 0x4B;
@@ -144,6 +119,54 @@ private:
   static constexpr uint8_t kBmm150ZRepReg = 0x52;
   static constexpr uint8_t kBmm150DataXLsbReg = 0x42;
   static constexpr float kMicroTeslaPerLsb = 1.0f / 16.0f;
+
+  static bool configureAux(BMI270 &imu, uint8_t auxAddress)
+  {
+    bmi2_sens_config auxConfig{};
+    auxConfig.type = BMI2_AUX;
+    auxConfig.cfg.aux.aux_en = BMI2_ENABLE;
+    auxConfig.cfg.aux.manual_en = BMI2_ENABLE;
+    auxConfig.cfg.aux.man_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_8;
+    auxConfig.cfg.aux.aux_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_8;
+    auxConfig.cfg.aux.odr = BMI2_AUX_ODR_12_5HZ;
+    auxConfig.cfg.aux.i2c_device_addr = auxAddress;
+    auxConfig.cfg.aux.read_addr = kBmm150DataXLsbReg;
+    auxConfig.cfg.aux.fcu_write_en = BMI2_ENABLE;
+    auxConfig.cfg.aux.offset = 0;
+
+    return imu.setConfig(auxConfig) == BMI2_OK;
+  }
+
+  static bool probeAndConfigureAddress(BMI270 &imu, uint8_t &detectedAddress)
+  {
+    constexpr uint8_t addressCandidates[] = {
+      0x10, // BMM150 7-bit default address.
+      0x12, // Alternate 7-bit address when SDO is high.
+      0x20, // 8-bit form of 0x10 (library/board variant fallback).
+      0x24  // 8-bit form of 0x12 (library/board variant fallback).
+    };
+
+    for (uint8_t auxAddress : addressCandidates)
+    {
+      if (!configureAux(imu, auxAddress))
+      {
+        continue;
+      }
+
+      if (imu.readAux(kBmm150ChipIdReg, 1) != BMI2_OK)
+      {
+        continue;
+      }
+
+      if (imu.data.auxData[0] == kBmm150ChipId)
+      {
+        detectedAddress = auxAddress;
+        return true;
+      }
+    }
+
+    return false;
+  }
 
   static int16_t signExtend(int16_t value, uint8_t bits)
   {
@@ -165,5 +188,6 @@ private:
   bool hasLastMagTimestamp = false;
   bool hasLastMagSample = false;
   uint32_t lastMagTimestampMs = 0;
+  uint8_t bmm150I2cAddr = 0;
   Sample lastSample{};
 };
