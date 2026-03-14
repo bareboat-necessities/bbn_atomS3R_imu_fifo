@@ -27,11 +27,10 @@ public:
     bmi2_sens_config auxConfig{};
     auxConfig.type = BMI2_AUX;
     auxConfig.cfg.aux.aux_en = BMI2_ENABLE;
-    // FIFO AUX frames are only populated when the BMI270 AUX interface runs
-    // in automatic mode. Manual mode is useful for direct readAux()/writeAux()
-    // transactions but leaves FIFO aux payloads stale.
-    auxConfig.cfg.aux.manual_en = BMI2_DISABLE;
-    // Read a full BMM150 data frame in one automatic transaction.
+    // Use manual mode because magnetometer data is read directly via readAux()
+    // and not from the BMI270 FIFO AUX payload.
+    auxConfig.cfg.aux.manual_en = BMI2_ENABLE;
+    // Read a full BMM150 data frame per AUX transaction.
     auxConfig.cfg.aux.man_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_8;
     auxConfig.cfg.aux.aux_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_8;
     auxConfig.cfg.aux.odr = BMI2_AUX_ODR_12_5HZ;
@@ -83,7 +82,7 @@ public:
     }
 
     delay(20);
-    Serial.println("BMM150 initialized over BMI270 AUX auto read mode.");
+    Serial.println("BMM150 initialized over BMI270 AUX direct-read mode.");
     return true;
   }
 
@@ -95,7 +94,7 @@ public:
     return static_cast<float>(rawValue) * kMicroTeslaPerLsb;
   }
 
-  Sample readFromAux(const uint8_t fifoAuxData[BMI2_AUX_NUM_BYTES], uint32_t sampleTimestampMs)
+  Sample readLatestSample(uint32_t sampleTimestampMs)
   {
     Sample sample = lastSample;
 
@@ -106,12 +105,19 @@ public:
       return sample;
     }
 
+    if (imuSensor->readAux(kBmm150DataXLsbReg, BMI2_AUX_NUM_BYTES) != BMI2_OK)
+    {
+      sample.updated = false;
+      sample.deltaMs = 0.0f;
+      return sample;
+    }
+
     int16_t magX = 0;
     int16_t magY = 0;
     int16_t magZ = 0;
-    decodeBMM150Raw(fifoAuxData, magX, magY, magZ);
+    decodeBMM150Raw(imuSensor->data.auxData, magX, magY, magZ);
 
-    if (!isDataReady(fifoAuxData))
+    if (!isDataReady(imuSensor->data.auxData))
     {
       sample.updated = false;
       sample.deltaMs = 0.0f;

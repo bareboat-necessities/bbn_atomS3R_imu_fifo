@@ -58,7 +58,7 @@ void loop()
     return;
   }
 
-  const MagReader::Sample magSample = magReader.readFromAux(imuSample.auxData, imuSample.timestampMs);
+  const MagReader::Sample magSample = magReader.readLatestSample(imuSample.timestampMs);
 
   float accNorth = 0.0f;
   float accEast = 0.0f;
