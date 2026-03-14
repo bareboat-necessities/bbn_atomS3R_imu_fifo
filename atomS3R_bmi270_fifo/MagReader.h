@@ -26,8 +26,8 @@ public:
     bmi2_sens_config auxConfig{};
     auxConfig.type = BMI2_AUX;
     auxConfig.cfg.aux.aux_en = BMI2_ENABLE;
-    // Use BMI270 AUX auto mode so FIFO frames include fresh BMM150 bytes.
-    auxConfig.cfg.aux.manual_en = BMI2_DISABLE;
+    // Keep AUX in manual mode and fetch magnetometer bytes explicitly.
+    auxConfig.cfg.aux.manual_en = BMI2_ENABLE;
     // Read a full BMM150 data frame per AUX transaction.
     auxConfig.cfg.aux.man_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_8;
     auxConfig.cfg.aux.aux_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_8;
@@ -80,7 +80,7 @@ public:
     }
 
     delay(20);
-    Serial.println("BMM150 initialized over BMI270 AUX FIFO-synced mode.");
+    Serial.println("BMM150 initialized over BMI270 AUX manual-read mode.");
     return true;
   }
 
@@ -92,14 +92,21 @@ public:
     return static_cast<float>(rawValue) * kMicroTeslaPerLsb;
   }
 
-  Sample readLatestSample(const uint8_t auxData[BMI2_AUX_NUM_BYTES], uint32_t sampleTimestampMs)
+  Sample readLatestSample(BMI270 &imu, uint32_t sampleTimestampMs)
   {
     Sample sample = lastSample;
+
+    if (imu.readAux(kBmm150DataXLsbReg, BMI2_AUX_NUM_BYTES) != BMI2_OK)
+    {
+      sample.updated = false;
+      sample.deltaMs = 0.0f;
+      return sample;
+    }
 
     int16_t magX = 0;
     int16_t magY = 0;
     int16_t magZ = 0;
-    decodeBMM150Raw(auxData, magX, magY, magZ);
+    decodeBMM150Raw(imu.data.auxData, magX, magY, magZ);
 
     const bool changed = !hasLastMagSample || magX != lastSample.x || magY != lastSample.y || magZ != lastSample.z;
     if (!changed)
