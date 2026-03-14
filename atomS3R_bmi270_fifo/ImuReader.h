@@ -22,7 +22,6 @@ public:
     float gyroX = 0.0f;
     float gyroY = 0.0f;
     float gyroZ = 0.0f;
-    uint8_t auxData[BMI2_AUX_NUM_BYTES] = {0};
   };
 
   bool begin(TwoWire &wire, uint8_t i2cAddress = kDefaultI2cAddress, uint8_t attemptsPerAddress = 3)
@@ -71,9 +70,9 @@ public:
     imu.setGyroODR(BMI2_GYR_ODR_100HZ);
 
     BMI270_FIFOConfig fifoConfig;
-    // Include AUX in FIFO so each drained frame carries synchronized
-    // magnetometer payload bytes from the BMM150 bridge.
-    fifoConfig.flags = BMI2_FIFO_ACC_EN | BMI2_FIFO_GYR_EN | BMI2_FIFO_AUX_EN | BMI2_FIFO_TIME_EN;
+    // Keep FIFO dedicated to IMU data. Magnetometer is read directly through
+    // the BMI270 AUX bridge to avoid AUX payload interactions with FIFO timing.
+    fifoConfig.flags = BMI2_FIFO_ACC_EN | BMI2_FIFO_GYR_EN | BMI2_FIFO_TIME_EN;
     fifoConfig.watermark = watermarkFrames;
     fifoConfig.accelDownSample = BMI2_FIFO_DOWN_SAMPLE_1;
     fifoConfig.gyroDownSample = BMI2_FIFO_DOWN_SAMPLE_1;
@@ -147,12 +146,6 @@ public:
     sample.gyroX = latest.gyroX;
     sample.gyroY = latest.gyroY;
     sample.gyroZ = latest.gyroZ;
-
-    for (uint8_t i = 0; i < BMI2_AUX_NUM_BYTES; ++i)
-    {
-      sample.auxData[i] = latest.auxData[i];
-    }
-
     return sample;
   }
 
