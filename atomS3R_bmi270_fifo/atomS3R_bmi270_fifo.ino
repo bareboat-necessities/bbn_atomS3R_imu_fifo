@@ -3,8 +3,8 @@
 #include "ImuReader.h"
 #include "MagReader.h"
 
-constexpr uint8_t ATOMS3R_SENSOR_SDA_PIN = 47;
-constexpr uint8_t ATOMS3R_SENSOR_SCL_PIN = 45;
+constexpr uint8_t ATOMS3R_SENSOR_SDA_PIN = 45;
+constexpr uint8_t ATOMS3R_SENSOR_SCL_PIN = 0;
 constexpr uint32_t ATOMS3R_SENSOR_I2C_HZ = 400000;
 
 ImuReader imuReader;
@@ -18,7 +18,14 @@ void setup()
 
   Wire.begin(ATOMS3R_SENSOR_SDA_PIN, ATOMS3R_SENSOR_SCL_PIN, ATOMS3R_SENSOR_I2C_HZ);
 
-  imuReader.begin(Wire);
+  if (!imuReader.begin(Wire))
+  {
+    Serial.println("BMI270 init failed; halting startup.");
+    while (true)
+    {
+      delay(1000);
+    }
+  }
 
   if (!magReader.begin(imuReader.sensor()))
   {

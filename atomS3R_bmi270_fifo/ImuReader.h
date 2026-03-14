@@ -25,7 +25,7 @@ public:
     uint8_t auxData[BMI2_AUX_NUM_BYTES] = {0};
   };
 
-  bool begin(TwoWire &wire, uint8_t i2cAddress = kDefaultI2cAddress)
+  bool begin(TwoWire &wire, uint8_t i2cAddress = kDefaultI2cAddress, uint8_t attemptsPerAddress = 3)
   {
     uint8_t addressesToTry[2] = {i2cAddress, kAlternateI2cAddress};
     if (i2cAddress == kAlternateI2cAddress)
@@ -33,23 +33,31 @@ public:
       addressesToTry[1] = kDefaultI2cAddress;
     }
 
-    while (true)
+    for (uint8_t attempt = 1; attempt <= attemptsPerAddress; ++attempt)
     {
       for (const uint8_t address : addressesToTry)
       {
         if (imu.beginI2C(address, wire) == BMI2_OK)
         {
-          Serial.printf("BMI270 detected at I2C address 0x%02X\n", address);
+          Serial.printf(
+            "BMI270 detected at I2C address 0x%02X (attempt %u/%u)\n",
+            address,
+            attempt,
+            attemptsPerAddress);
           return true;
         }
       }
 
-      Serial.printf(
-        "BMI270 init failed on 0x%02X and 0x%02X. Retrying in 1 second...\n",
-        addressesToTry[0],
-        addressesToTry[1]);
-      delay(1000);
+      delay(50);
     }
+
+    Serial.printf(
+      "BMI270 init failed on 0x%02X and 0x%02X after %u attempts each.\n",
+      addressesToTry[0],
+      addressesToTry[1],
+      attemptsPerAddress);
+
+    return false;
   }
 
   void configureFIFO(uint16_t watermarkFrames = kDefaultFifoWatermarkFrames)
