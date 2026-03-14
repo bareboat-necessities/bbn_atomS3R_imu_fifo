@@ -27,8 +27,11 @@ public:
     bmi2_sens_config auxConfig{};
     auxConfig.type = BMI2_AUX;
     auxConfig.cfg.aux.aux_en = BMI2_ENABLE;
-    auxConfig.cfg.aux.manual_en = BMI2_ENABLE;
-    // Read a full BMM150 data frame in one manual transaction.
+    // FIFO AUX frames are only populated when the BMI270 AUX interface runs
+    // in automatic mode. Manual mode is useful for direct readAux()/writeAux()
+    // transactions but leaves FIFO aux payloads stale.
+    auxConfig.cfg.aux.manual_en = BMI2_DISABLE;
+    // Read a full BMM150 data frame in one automatic transaction.
     auxConfig.cfg.aux.man_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_8;
     auxConfig.cfg.aux.aux_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_8;
     auxConfig.cfg.aux.odr = BMI2_AUX_ODR_12_5HZ;
@@ -40,7 +43,7 @@ public:
 
     if (imu.setConfig(auxConfig) != BMI2_OK)
     {
-      Serial.println("Failed to configure BMI270 AUX manual mode.");
+      Serial.println("Failed to configure BMI270 AUX auto mode.");
       return false;
     }
 
@@ -80,7 +83,7 @@ public:
     }
 
     delay(20);
-    Serial.println("BMM150 initialized over BMI270 AUX manual read mode.");
+    Serial.println("BMM150 initialized over BMI270 AUX auto read mode.");
     return true;
   }
 
