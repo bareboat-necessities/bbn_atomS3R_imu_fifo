@@ -117,13 +117,6 @@ public:
     int16_t magZ = 0;
     decodeBMM150Raw(imuSensor->data.auxData, magX, magY, magZ);
 
-    if (!isDataReady(imuSensor->data.auxData))
-    {
-      sample.updated = false;
-      sample.deltaMs = 0.0f;
-      return sample;
-    }
-
     const bool changed = !hasLastMagSample || magX != lastSample.x || magY != lastSample.y || magZ != lastSample.z;
     if (!changed)
     {
@@ -177,13 +170,6 @@ private:
     magY = signExtend(rawY, 13);
     magZ = signExtend(rawZ, 15);
   }
-
-  static bool isDataReady(const uint8_t auxData[BMI2_AUX_NUM_BYTES])
-  {
-    // BMM150 RHALL/STATUS byte: DRDY bit indicates a fresh sample is present.
-    return (auxData[6] & 0x01) != 0;
-  }
-
 
   BMI270 *imuSensor = nullptr;
   bool hasLastMagTimestamp = false;
