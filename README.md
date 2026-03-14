@@ -14,7 +14,10 @@ This repo contains an Arduino `.ino` project for reading BMI270 IMU data through
 - The internal BMI270/BMM150 sensor chain on AtomS3R is reached on the internal sensor I2C bus (`SDA=GPIO45`, `SCL=GPIO0`).
 - The sketch initializes `Wire` explicitly with `Wire.begin(45, 0, 400000)` and passes that bus to `imu.beginI2C(...)`.
 - BMI270 initialization probes both valid BMI270 I2C addresses (`0x68` then `0x69`) with short retry windows and fails fast if neither responds, so startup errors are explicit instead of silently retrying forever.
-- Magnetometer values printed from `auxData[]` are raw/uncompensated BMM150 readings intended for bring-up/debug timing.
+- Acceleration is converted to SI units (`m/s^2`) before logging.
+- Gyroscope is logged in degrees/second (`dps`).
+- Magnetometer values are read from BMI270 FIFO AUX frames and printed in microtesla (uT) using a simple LSB-to-uT scaling for bring-up/debug timing.
+- Loop pacing targets the IMU ODR (100 Hz) by sleeping only the remaining time in each 10 ms cycle, rather than a fixed `delay(5)`.
 
 ## Build target
 

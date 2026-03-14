@@ -6,6 +6,17 @@
 constexpr uint8_t ATOMS3R_SENSOR_SDA_PIN = 45;
 constexpr uint8_t ATOMS3R_SENSOR_SCL_PIN = 0;
 constexpr uint32_t ATOMS3R_SENSOR_I2C_HZ = 400000;
+constexpr uint32_t kImuOdrHz = 100;
+constexpr uint32_t kLoopPeriodUs = 1000000UL / kImuOdrHz;
+
+void waitForNextLoopTick(uint32_t loopStartUs)
+{
+  const uint32_t elapsedUs = micros() - loopStartUs;
+  if (elapsedUs < kLoopPeriodUs)
+  {
+    delayMicroseconds(kLoopPeriodUs - elapsedUs);
+  }
+}
 
 ImuReader imuReader;
 MagReader magReader;
@@ -38,10 +49,12 @@ void setup()
 
 void loop()
 {
+  const uint32_t loopStartUs = micros();
+
   const ImuReader::Sample imuSample = imuReader.readLatestSample();
   if (!imuSample.valid)
   {
-    delay(5);
+    waitForNextLoopTick(loopStartUs);
     return;
   }
 
@@ -57,13 +70,19 @@ void loop()
   float gyrDown = 0.0f;
   ImuReader::sensorToNED(imuSample.gyroX, imuSample.gyroY, imuSample.gyroZ, gyrNorth, gyrEast, gyrDown);
 
-  float magNorth = 0.0f;
-  float magEast = 0.0f;
-  float magDown = 0.0f;
-  ImuReader::sensorToNED(static_cast<float>(magSample.x), static_cast<float>(magSample.y), static_cast<float>(magSample.z), magNorth, magEast, magDown);
+  float magNorthUt = 0.0f;
+  float magEastUt = 0.0f;
+  float magDownUt = 0.0f;
+  ImuReader::sensorToNED(
+    MagReader::rawToMicroTesla(magSample.x),
+    MagReader::rawToMicroTesla(magSample.y),
+    MagReader::rawToMicroTesla(magSample.z),
+    magNorthUt,
+    magEastUt,
+    magDownUt);
 
   Serial.printf(
-    "FIFO batch=%u | dt_imu_ms=%.2f | dt_mag_ms=%s%.2f | acc_ned[m/s^2] N=%.3f E=%.3f D=%.3f | gyro_ned[dps] N=%.3f E=%.3f D=%.3f | mag_ned[raw] N=%.1f E=%.1f D=%.1f\n",
+    "FIFO batch=%u | dt_imu_ms=%.2f | dt_mag_ms=%s%.2f | acc_ned[m/s^2] N=%.3f E=%.3f D=%.3f | gyro_ned[dps] N=%.3f E=%.3f D=%.3f | mag_ned[uT] N=%.2f E=%.2f D=%.2f\n",
     imuSample.framesRead,
     imuSample.imuDeltaMs,
     magSample.updated ? "" : "~",
@@ -74,9 +93,9 @@ void loop()
     gyrNorth,
     gyrEast,
     gyrDown,
-    magNorth,
-    magEast,
-    magDown);
+    magNorthUt,
+    magEastUt,
+    magDownUt);
 
-  delay(5);
+  waitForNextLoopTick(loopStartUs);
 }
