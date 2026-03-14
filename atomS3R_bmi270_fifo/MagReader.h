@@ -17,6 +17,7 @@ public:
 
   bool begin(BMI270 &imu)
   {
+    imuSensor = &imu;
     if (imu.enableFeature(BMI2_AUX) != BMI2_OK)
     {
       Serial.println("Failed to enable BMI270 AUX interface.");
@@ -74,34 +75,55 @@ public:
       return false;
     }
 
-    auxConfig.cfg.aux.manual_en = BMI2_DISABLE;
-    if (imu.setConfig(auxConfig) != BMI2_OK)
-    {
-      Serial.println("Failed to configure BMI270 AUX automatic mode.");
-      return false;
-    }
-
-    Serial.println("BMM150 initialized over BMI270 AUX at low ODR.");
+    Serial.println("BMM150 initialized over BMI270 AUX manual read mode.");
     return true;
   }
 
-  Sample readFromAux(const uint8_t auxData[BMI2_AUX_NUM_BYTES], uint32_t sampleTimestampMs)
+  Sample readFromAux(const uint8_t /*fifoAuxData*/[BMI2_AUX_NUM_BYTES], uint32_t sampleTimestampMs)
   {
-    Sample sample{};
-    decodeBMM150Raw(auxData, sample.x, sample.y, sample.z);
+    Sample sample = lastSample;
 
-    sample.updated = auxDataChanged(auxData);
-    if (sample.updated)
+    if (imuSensor == nullptr)
     {
-      if (hasLastMagTimestamp)
-      {
-        sample.deltaMs = static_cast<float>(sampleTimestampMs - lastMagTimestampMs);
-      }
-
-      hasLastMagTimestamp = true;
-      lastMagTimestampMs = sampleTimestampMs;
-      updateLastAuxData(auxData);
+      sample.updated = false;
+      sample.deltaMs = 0.0f;
+      return sample;
     }
+
+    if (imuSensor->readAux(kBmm150DataXLsbReg, BMI2_AUX_NUM_BYTES) != BMI2_OK)
+    {
+      sample.updated = false;
+      sample.deltaMs = 0.0f;
+      return sample;
+    }
+
+    int16_t magX = 0;
+    int16_t magY = 0;
+    int16_t magZ = 0;
+    decodeBMM150Raw(imuSensor->data.auxData, magX, magY, magZ);
+
+    const bool changed = !hasLastMagSample || magX != lastSample.x || magY != lastSample.y || magZ != lastSample.z;
+    if (!changed)
+    {
+      sample.updated = false;
+      sample.deltaMs = 0.0f;
+      return sample;
+    }
+
+    sample.x = magX;
+    sample.y = magY;
+    sample.z = magZ;
+    sample.updated = true;
+
+    if (hasLastMagTimestamp)
+    {
+      sample.deltaMs = static_cast<float>(sampleTimestampMs - lastMagTimestampMs);
+    }
+
+    hasLastMagTimestamp = true;
+    hasLastMagSample = true;
+    lastMagTimestampMs = sampleTimestampMs;
+    lastSample = sample;
 
     return sample;
   }
@@ -133,28 +155,10 @@ private:
     magZ = signExtend(rawZ, 15);
   }
 
-  bool auxDataChanged(const uint8_t auxData[BMI2_AUX_NUM_BYTES]) const
-  {
-    for (uint8_t i = 0; i < BMI2_AUX_NUM_BYTES; ++i)
-    {
-      if (auxData[i] != lastAuxData[i])
-      {
-        return true;
-      }
-    }
 
-    return false;
-  }
-
-  void updateLastAuxData(const uint8_t auxData[BMI2_AUX_NUM_BYTES])
-  {
-    for (uint8_t i = 0; i < BMI2_AUX_NUM_BYTES; ++i)
-    {
-      lastAuxData[i] = auxData[i];
-    }
-  }
-
+  BMI270 *imuSensor = nullptr;
   bool hasLastMagTimestamp = false;
+  bool hasLastMagSample = false;
   uint32_t lastMagTimestampMs = 0;
-  uint8_t lastAuxData[BMI2_AUX_NUM_BYTES] = {0};
+  Sample lastSample{};
 };
