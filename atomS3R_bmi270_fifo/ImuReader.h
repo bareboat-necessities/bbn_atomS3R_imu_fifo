@@ -71,8 +71,9 @@ public:
     imu.setGyroODR(BMI2_GYR_ODR_100HZ);
 
     BMI270_FIFOConfig fifoConfig;
-    // Include AUX frames so BMM150 samples are time-correlated with IMU data.
-    fifoConfig.flags = BMI2_FIFO_ACC_EN | BMI2_FIFO_GYR_EN | BMI2_FIFO_AUX_EN | BMI2_FIFO_TIME_EN;
+    // Keep FIFO dedicated to IMU data. Magnetometer samples are read directly
+    // from the AUX bridge to avoid stale/invalid FIFO AUX payloads.
+    fifoConfig.flags = BMI2_FIFO_ACC_EN | BMI2_FIFO_GYR_EN | BMI2_FIFO_TIME_EN;
     fifoConfig.watermark = watermarkFrames;
     fifoConfig.accelDownSample = BMI2_FIFO_DOWN_SAMPLE_1;
     fifoConfig.gyroDownSample = BMI2_FIFO_DOWN_SAMPLE_1;
