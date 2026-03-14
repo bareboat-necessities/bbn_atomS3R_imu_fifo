@@ -119,16 +119,17 @@ private:
   static constexpr uint8_t kBmm150ZRepReg = 0x52;
   static constexpr uint8_t kBmm150DataXLsbReg = 0x42;
   static constexpr float kMicroTeslaPerLsb = 1.0f / 16.0f;
-
   static bool configureAux(BMI270 &imu, uint8_t auxAddress)
   {
     bmi2_sens_config auxConfig{};
     auxConfig.type = BMI2_AUX;
     auxConfig.cfg.aux.aux_en = BMI2_ENABLE;
     auxConfig.cfg.aux.manual_en = BMI2_ENABLE;
-    auxConfig.cfg.aux.man_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_8;
-    auxConfig.cfg.aux.aux_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_8;
-    auxConfig.cfg.aux.odr = BMI2_AUX_ODR_12_5HZ;
+    // Bosch BMI270 API expects encoded burst-length values (0..3),
+    // where BMI2_AUX_READ_LEN_3 maps to 8-byte transfers.
+    auxConfig.cfg.aux.man_rd_burst = BMI2_AUX_READ_LEN_3;
+    auxConfig.cfg.aux.aux_rd_burst = BMI2_AUX_READ_LEN_3;
+    auxConfig.cfg.aux.odr = BMI2_AUX_ODR_100HZ;
     auxConfig.cfg.aux.i2c_device_addr = auxAddress;
     auxConfig.cfg.aux.read_addr = kBmm150DataXLsbReg;
     auxConfig.cfg.aux.fcu_write_en = BMI2_ENABLE;
@@ -141,9 +142,7 @@ private:
   {
     constexpr uint8_t addressCandidates[] = {
       0x10, // BMM150 7-bit default address.
-      0x12, // Alternate 7-bit address when SDO is high.
-      0x20, // 8-bit form of 0x10 (library/board variant fallback).
-      0x24  // 8-bit form of 0x12 (library/board variant fallback).
+      0x12  // Alternate 7-bit address when SDO is high.
     };
 
     for (uint8_t auxAddress : addressCandidates)
@@ -152,6 +151,14 @@ private:
       {
         continue;
       }
+
+      // BMM150 can stay in suspend after reset; power it up before probing the
+      // chip-ID register on AtomS3R's BMI270 AUX bus.
+      if (imu.writeAux(kBmm150PowerCtrlReg, 0x01) != BMI2_OK)
+      {
+        continue;
+      }
+      delay(3);
 
       if (imu.readAux(kBmm150ChipIdReg, 1) != BMI2_OK)
       {
