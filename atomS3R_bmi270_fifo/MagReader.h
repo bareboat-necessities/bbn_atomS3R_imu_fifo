@@ -28,7 +28,8 @@ public:
     auxConfig.type = BMI2_AUX;
     auxConfig.cfg.aux.aux_en = BMI2_ENABLE;
     auxConfig.cfg.aux.manual_en = BMI2_ENABLE;
-    auxConfig.cfg.aux.man_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_1;
+    // Read a full BMM150 data frame in one manual transaction.
+    auxConfig.cfg.aux.man_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_8;
     auxConfig.cfg.aux.aux_rd_burst = BMI2_AUX_RD_BURST_FRM_LEN_8;
     auxConfig.cfg.aux.odr = BMI2_AUX_ODR_12_5HZ;
     auxConfig.cfg.aux.i2c_device_addr = kBmm150I2cAddr;
@@ -63,7 +64,9 @@ public:
     }
     delay(10);
 
-    if (imu.writeAux(kBmm150OpModeReg, 0x00) != BMI2_OK)
+    // Normal mode + 30 Hz ODR keeps fresh magnetometer samples available while
+    // the IMU FIFO runs at 100 Hz.
+    if (imu.writeAux(kBmm150OpModeReg, 0x38) != BMI2_OK)
     {
       Serial.println("Failed to configure BMM150 op mode.");
       return false;
@@ -75,6 +78,7 @@ public:
       return false;
     }
 
+    delay(20);
     Serial.println("BMM150 initialized over BMI270 AUX manual read mode.");
     return true;
   }
