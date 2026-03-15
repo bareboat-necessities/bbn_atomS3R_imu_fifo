@@ -73,7 +73,7 @@ public:
     }
 
     imu.setAccelODR(accelOdr);
-    imu.setAccelRange(kDefaultAccelRange);
+    setAccelRange(imu, kDefaultAccelRange);
     imu.setGyroODR(gyroOdr);
     const float accelHz = imuAccelOdrToHz(accelOdr);
     const float gyroHz = imuGyroOdrToHz(gyroOdr);
@@ -207,6 +207,20 @@ private:
       case BMI2_GYR_ODR_3200HZ: return 3200.0f;
       default: return 0.0f;
     }
+  }
+
+  static void setAccelRange(BMI270 &imu, uint8_t range)
+  {
+    bmi2_sens_config config{};
+    config.type = BMI2_ACCEL;
+
+    if (imu.getConfig(&config) != BMI2_OK)
+    {
+      return;
+    }
+
+    config.cfg.acc.range = range;
+    imu.setConfig(config);
   }
 
   BMI270 imu;
