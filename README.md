@@ -15,6 +15,7 @@ This repo contains an Arduino `.ino` project for reading BMI270 IMU data through
 - The sketch initializes `Wire` explicitly with `Wire.begin(45, 0, 400000)` and passes that bus to `imu.beginI2C(...)`.
 - BMI270 initialization probes both valid BMI270 I2C addresses (`0x68` then `0x69`) with short retry windows and fails fast if neither responds, so startup errors are explicit instead of silently retrying forever.
 - Acceleration is converted to SI units (`m/s^2`) before logging.
+- Accelerometer range is explicitly configured to ±2g during IMU setup.
 - Gyroscope is logged in degrees/second (`dps`).
 - Magnetometer values are synchronized into BMI270 FIFO AUX payload bytes and decoded from the latest drained frame, then printed in microtesla (uT) using a simple LSB-to-uT scaling for bring-up/debug timing.
 - Loop pacing targets the IMU ODR (200 Hz) by sleeping only the remaining time in each 5 ms cycle, rather than a fixed `delay(5)`.

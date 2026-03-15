@@ -11,6 +11,7 @@ public:
   static constexpr uint16_t kDefaultFifoWatermarkFrames = 20;
   static constexpr uint8_t kDefaultAccelOdr = BMI2_ACC_ODR_200HZ;
   static constexpr uint8_t kDefaultGyroOdr = BMI2_GYR_ODR_200HZ;
+  static constexpr uint8_t kDefaultAccelRange = BMI2_ACC_RANGE_2G;
 
   struct Sample
   {
@@ -72,6 +73,7 @@ public:
     }
 
     imu.setAccelODR(accelOdr);
+    imu.setAccelRange(kDefaultAccelRange);
     imu.setGyroODR(gyroOdr);
     const float accelHz = imuAccelOdrToHz(accelOdr);
     const float gyroHz = imuGyroOdrToHz(gyroOdr);
