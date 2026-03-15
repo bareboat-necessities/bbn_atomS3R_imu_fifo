@@ -11,6 +11,7 @@ constexpr uint8_t kImuAccelOdr = ImuReader::kDefaultAccelOdr;
 constexpr uint8_t kImuGyroOdr = ImuReader::kDefaultGyroOdr;
 constexpr uint8_t kMagOdr = MagReader::kDefaultBmm150Odr;
 constexpr uint8_t kAuxOdr = MagReader::kDefaultAuxOdr;
+constexpr float kMagPeriodMs = MagReader::odrSettingToPeriodMs(kMagOdr);
 constexpr uint32_t kLoopPeriodUs = 1000000UL / kImuOdrHz;
 
 void waitForNextLoopTick(uint32_t loopStartUs)
@@ -89,12 +90,13 @@ void loop()
   }
 
   Serial.printf(
-    "FIFO batch=%u | dt_imu_ms=%.2f | mag_valid=%u | dt_mag_ms=%s%.2f | acc_ned[m/s^2] N=%.3f E=%.3f D=%.3f | gyro_ned[dps] N=%.3f E=%.3f D=%.3f | mag_ned[uT] N=%.2f E=%.2f D=%.2f\n",
+    "FIFO batch=%u | dt_imu_ms=%.2f | mag_valid=%u | dt_mag_ms=%s%.2f (target~%.2f) | acc_ned[m/s^2] N=%.3f E=%.3f D=%.3f | gyro_ned[dps] N=%.3f E=%.3f D=%.3f | mag_ned[uT] N=%.2f E=%.2f D=%.2f\n",
     imuSample.framesRead,
     imuSample.imuDeltaMs,
     magSample.valid ? 1U : 0U,
     magSample.updated ? "+" : "~",
     magSample.deltaMs,
+    kMagPeriodMs,
     accNorth,
     accEast,
     accDown,
