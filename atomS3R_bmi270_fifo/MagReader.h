@@ -184,8 +184,16 @@ private:
 
   static int16_t signExtend(int16_t value, uint8_t bits)
   {
-    const int16_t shift = 16 - bits;
-    return (value << shift) >> shift;
+    const int16_t signBit = static_cast<int16_t>(1U << (bits - 1));
+    const int16_t valueMask = static_cast<int16_t>((1U << bits) - 1U);
+
+    value &= valueMask;
+    if ((value & signBit) != 0)
+    {
+      value = static_cast<int16_t>(value - static_cast<int16_t>(1U << bits));
+    }
+
+    return value;
   }
 
   static void decodeBMM150Raw(const uint8_t auxData[BMI2_AUX_NUM_BYTES], int16_t &magX, int16_t &magY, int16_t &magZ)
