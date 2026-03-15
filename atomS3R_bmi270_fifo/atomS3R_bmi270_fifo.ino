@@ -73,20 +73,24 @@ void loop()
   float magNorthUt = 0.0f;
   float magEastUt = 0.0f;
   float magDownUt = 0.0f;
-  ImuReader::sensorToNED(
-    MagReader::rawToMicroTesla(magSample.x),
-    MagReader::rawToMicroTesla(magSample.y),
-    MagReader::rawToMicroTesla(magSample.z),
-    magNorthUt,
-    magEastUt,
-    magDownUt);
+  if (magSample.valid)
+  {
+    ImuReader::sensorToNED(
+      MagReader::rawToMicroTesla(magSample.x),
+      MagReader::rawToMicroTesla(magSample.y),
+      MagReader::rawToMicroTesla(magSample.z),
+      magNorthUt,
+      magEastUt,
+      magDownUt);
+  }
 
   Serial.printf(
-    "FIFO batch=%u | dt_imu_ms=%.2f | dt_mag_ms=%s%.2f | acc_ned[m/s^2] N=%.3f E=%.3f D=%.3f | gyro_ned[dps] N=%.3f E=%.3f D=%.3f | mag_ned[uT] N=%.2f E=%.2f D=%.2f\n",
+    "FIFO batch=%u | dt_imu_ms=%.2f | mag_valid=%u | dt_mag_ms=%s%.2f | acc_ned[m/s^2] N=%.3f E=%.3f D=%.3f | gyro_ned[dps] N=%.3f E=%.3f D=%.3f | mag_ned[uT] N=%.2f E=%.2f D=%.2f\n",
     imuSample.framesRead,
     imuSample.imuDeltaMs,
+    magSample.valid ? 1U : 0U,
     magSample.updated ? "" : "~",
-    magSample.updated ? magSample.deltaMs : 0.0f,
+    magSample.deltaMs,
     accNorth,
     accEast,
     accDown,
