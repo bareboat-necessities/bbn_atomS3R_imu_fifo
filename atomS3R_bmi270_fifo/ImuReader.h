@@ -9,6 +9,8 @@ public:
   static constexpr uint8_t kDefaultI2cAddress = BMI2_I2C_PRIM_ADDR;
   static constexpr uint8_t kAlternateI2cAddress = BMI2_I2C_SEC_ADDR;
   static constexpr uint16_t kDefaultFifoWatermarkFrames = 20;
+  static constexpr uint8_t kDefaultAccelOdr = BMI2_ACC_ODR_100HZ;
+  static constexpr uint8_t kDefaultGyroOdr = BMI2_GYR_ODR_100HZ;
 
   struct Sample
   {
@@ -59,15 +61,22 @@ public:
     return false;
   }
 
-  void configureFIFO(uint16_t watermarkFrames = kDefaultFifoWatermarkFrames)
+  void configureFIFO(
+    uint16_t watermarkFrames = kDefaultFifoWatermarkFrames,
+    uint8_t accelOdr = kDefaultAccelOdr,
+    uint8_t gyroOdr = kDefaultGyroOdr)
   {
     if (watermarkFrames > kDefaultFifoWatermarkFrames)
     {
       watermarkFrames = kDefaultFifoWatermarkFrames;
     }
 
-    imu.setAccelODR(BMI2_ACC_ODR_100HZ);
-    imu.setGyroODR(BMI2_GYR_ODR_100HZ);
+    imu.setAccelODR(accelOdr);
+    imu.setGyroODR(gyroOdr);
+    const float accelHz = imuAccelOdrToHz(accelOdr);
+    const float gyroHz = imuGyroOdrToHz(gyroOdr);
+    const float fifoRateHz = accelHz > gyroHz ? accelHz : gyroHz;
+    imuFramePeriodMs = fifoRateHz > 0.0f ? (1000.0f / fifoRateHz) : kDefaultImuFramePeriodMs;
 
     BMI270_FIFOConfig fifoConfig;
     // Keep FIFO dedicated to IMU data. Magnetometer is read directly through
@@ -122,10 +131,10 @@ public:
       }
 
       // If FIFO sensor time is missing or non-monotonic, estimate elapsed time
-      // from the number of frames drained at the configured 100 Hz ODR.
+      // from the number of frames drained at the configured IMU ODR.
       if (timestampDeltaMs == 0)
       {
-        timestampDeltaMs = framesRead * kImuFramePeriodMs;
+        timestampDeltaMs = static_cast<uint32_t>(framesRead * imuFramePeriodMs);
         sample.timestampMs = lastImuTimestampMs + timestampDeltaMs;
       }
 
@@ -159,11 +168,48 @@ public:
   BMI270 &sensor() { return imu; }
 
 private:
-  static constexpr uint32_t kImuFramePeriodMs = 10;
+  static constexpr float kDefaultImuFramePeriodMs = 10.0f;
   static constexpr float kStandardGravity = 9.80665f;
+
+  static float imuAccelOdrToHz(uint8_t accelOdr)
+  {
+    switch (accelOdr)
+    {
+      case BMI2_ACC_ODR_0_78HZ: return 0.78f;
+      case BMI2_ACC_ODR_1_56HZ: return 1.56f;
+      case BMI2_ACC_ODR_3_12HZ: return 3.12f;
+      case BMI2_ACC_ODR_6_25HZ: return 6.25f;
+      case BMI2_ACC_ODR_12_5HZ: return 12.5f;
+      case BMI2_ACC_ODR_25HZ: return 25.0f;
+      case BMI2_ACC_ODR_50HZ: return 50.0f;
+      case BMI2_ACC_ODR_100HZ: return 100.0f;
+      case BMI2_ACC_ODR_200HZ: return 200.0f;
+      case BMI2_ACC_ODR_400HZ: return 400.0f;
+      case BMI2_ACC_ODR_800HZ: return 800.0f;
+      case BMI2_ACC_ODR_1600HZ: return 1600.0f;
+      default: return 0.0f;
+    }
+  }
+
+  static float imuGyroOdrToHz(uint8_t gyroOdr)
+  {
+    switch (gyroOdr)
+    {
+      case BMI2_GYR_ODR_25HZ: return 25.0f;
+      case BMI2_GYR_ODR_50HZ: return 50.0f;
+      case BMI2_GYR_ODR_100HZ: return 100.0f;
+      case BMI2_GYR_ODR_200HZ: return 200.0f;
+      case BMI2_GYR_ODR_400HZ: return 400.0f;
+      case BMI2_GYR_ODR_800HZ: return 800.0f;
+      case BMI2_GYR_ODR_1600HZ: return 1600.0f;
+      case BMI2_GYR_ODR_3200HZ: return 3200.0f;
+      default: return 0.0f;
+    }
+  }
 
   BMI270 imu;
   BMI270_SensorData fifoFrames[kDefaultFifoWatermarkFrames];
   bool hasLastImuTimestamp = false;
   uint32_t lastImuTimestampMs = 0;
+  float imuFramePeriodMs = kDefaultImuFramePeriodMs;
 };

@@ -7,6 +7,10 @@ constexpr uint8_t ATOMS3R_SENSOR_SDA_PIN = 45;
 constexpr uint8_t ATOMS3R_SENSOR_SCL_PIN = 0;
 constexpr uint32_t ATOMS3R_SENSOR_I2C_HZ = 400000;
 constexpr uint32_t kImuOdrHz = 100;
+constexpr uint8_t kImuAccelOdr = ImuReader::kDefaultAccelOdr;
+constexpr uint8_t kImuGyroOdr = ImuReader::kDefaultGyroOdr;
+constexpr uint8_t kMagOdr = MagReader::kDefaultBmm150Odr;
+constexpr uint8_t kAuxOdr = MagReader::kDefaultAuxOdr;
 constexpr uint32_t kLoopPeriodUs = 1000000UL / kImuOdrHz;
 
 void waitForNextLoopTick(uint32_t loopStartUs)
@@ -38,12 +42,12 @@ void setup()
     }
   }
 
-  if (!magReader.begin(imuReader.sensor()))
+  if (!magReader.begin(imuReader.sensor(), kMagOdr, kAuxOdr))
   {
     Serial.println("Magnetometer init failed; continuing without valid mag data.");
   }
 
-  imuReader.configureFIFO();
+  imuReader.configureFIFO(ImuReader::kDefaultFifoWatermarkFrames, kImuAccelOdr, kImuGyroOdr);
   Serial.println("BMI270 initialized and FIFO configured.");
 }
 

@@ -6,6 +6,19 @@
 class MagReader
 {
 public:
+  // Bosch BMM150 ODR selector values (register 0x4C, bits [5:3]).
+  static constexpr uint8_t kBmm150Odr2Hz = 0x01;
+  static constexpr uint8_t kBmm150Odr6Hz = 0x02;
+  static constexpr uint8_t kBmm150Odr8Hz = 0x03;
+  static constexpr uint8_t kBmm150Odr10Hz = 0x00;
+  static constexpr uint8_t kBmm150Odr15Hz = 0x04;
+  static constexpr uint8_t kBmm150Odr20Hz = 0x05;
+  static constexpr uint8_t kBmm150Odr25Hz = 0x06;
+  static constexpr uint8_t kBmm150Odr30Hz = 0x07;
+
+  static constexpr uint8_t kDefaultBmm150Odr = kBmm150Odr30Hz;
+  static constexpr uint8_t kDefaultAuxOdr = BMI2_AUX_ODR_100HZ;
+
   struct Sample
   {
     int16_t x = 0;
@@ -16,7 +29,7 @@ public:
     float deltaMs = 0.0f;
   };
 
-  bool begin(BMI270 &imu)
+  bool begin(BMI270 &imu, uint8_t bmm150Odr = kDefaultBmm150Odr, uint8_t auxOdr = kDefaultAuxOdr)
   {
     if (imu.enableFeature(BMI2_AUX) != BMI2_OK)
     {
@@ -27,7 +40,7 @@ public:
     imu.setAuxPullUps(BMI2_ASDA_PUPSEL_2K);
 
     uint8_t detectedAddress = 0;
-    if (!probeAndConfigureAddress(imu, detectedAddress))
+    if (!probeAndConfigureAddress(imu, detectedAddress, auxOdr))
     {
       Serial.println("Failed to detect BMM150 on BMI270 AUX bus.");
       return false;
@@ -42,9 +55,9 @@ public:
     }
     delay(10);
 
-    // Normal mode + 30 Hz ODR keeps fresh magnetometer samples available while
-    // the IMU FIFO runs at 100 Hz.
-    if (imu.writeAux(kBmm150OpModeReg, 0x38) != BMI2_OK)
+    // Bosch BMM150 normal mode with configurable ODR.
+    const uint8_t opMode = kBmm150ModeNormal | ((bmm150Odr & kBmm150OdrMask) << kBmm150OdrShift);
+    if (imu.writeAux(kBmm150OpModeReg, opMode) != BMI2_OK)
     {
       Serial.println("Failed to configure BMM150 op mode.");
       return false;
@@ -122,11 +135,14 @@ private:
   static constexpr uint8_t kBmm150ChipId = 0x32;
   static constexpr uint8_t kBmm150PowerCtrlReg = 0x4B;
   static constexpr uint8_t kBmm150OpModeReg = 0x4C;
+  static constexpr uint8_t kBmm150ModeNormal = 0x00;
+  static constexpr uint8_t kBmm150OdrShift = 3;
+  static constexpr uint8_t kBmm150OdrMask = 0x07;
   static constexpr uint8_t kBmm150XyRepReg = 0x51;
   static constexpr uint8_t kBmm150ZRepReg = 0x52;
   static constexpr uint8_t kBmm150DataXLsbReg = 0x42;
   static constexpr float kMicroTeslaPerLsb = 1.0f / 16.0f;
-  static bool configureAux(BMI270 &imu, uint8_t auxAddress)
+  static bool configureAux(BMI270 &imu, uint8_t auxAddress, uint8_t auxOdr)
   {
     bmi2_sens_config auxConfig{};
     auxConfig.type = BMI2_AUX;
@@ -136,7 +152,7 @@ private:
     // where BMI2_AUX_READ_LEN_3 maps to 8-byte transfers.
     auxConfig.cfg.aux.man_rd_burst = BMI2_AUX_READ_LEN_3;
     auxConfig.cfg.aux.aux_rd_burst = BMI2_AUX_READ_LEN_3;
-    auxConfig.cfg.aux.odr = BMI2_AUX_ODR_100HZ;
+    auxConfig.cfg.aux.odr = auxOdr;
     auxConfig.cfg.aux.i2c_device_addr = auxAddress;
     auxConfig.cfg.aux.read_addr = kBmm150DataXLsbReg;
     auxConfig.cfg.aux.fcu_write_en = BMI2_ENABLE;
@@ -145,7 +161,7 @@ private:
     return imu.setConfig(auxConfig) == BMI2_OK;
   }
 
-  static bool probeAndConfigureAddress(BMI270 &imu, uint8_t &detectedAddress)
+  static bool probeAndConfigureAddress(BMI270 &imu, uint8_t &detectedAddress, uint8_t auxOdr)
   {
     constexpr uint8_t addressCandidates[] = {
       0x10, // BMM150 7-bit default address.
@@ -154,7 +170,7 @@ private:
 
     for (uint8_t auxAddress : addressCandidates)
     {
-      if (!configureAux(imu, auxAddress))
+      if (!configureAux(imu, auxAddress, auxOdr))
       {
         continue;
       }
