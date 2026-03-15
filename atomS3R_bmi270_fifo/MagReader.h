@@ -16,7 +16,7 @@ public:
   static constexpr uint8_t kBmm150Odr25Hz = 0x06;
   static constexpr uint8_t kBmm150Odr30Hz = 0x07;
 
-  static constexpr uint8_t kDefaultBmm150Odr = kBmm150Odr30Hz;
+  static constexpr uint8_t kDefaultBmm150Odr = kBmm150Odr25Hz;
   static constexpr uint8_t kDefaultAuxOdr = BMI2_AUX_ODR_100HZ;
 
   struct Sample
