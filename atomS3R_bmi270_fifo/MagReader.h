@@ -19,7 +19,7 @@ public:
   static constexpr uint8_t kDefaultBmm150Odr = kBmm150Odr25Hz;
   static constexpr uint8_t kDefaultAuxOdr = BMI2_AUX_ODR_100HZ;
 
-  static float odrSettingToHz(uint8_t bmm150Odr)
+  static constexpr float odrSettingToHz(uint8_t bmm150Odr)
   {
     switch (bmm150Odr & kBmm150OdrMask)
     {
@@ -35,7 +35,7 @@ public:
     }
   }
 
-  static float odrSettingToPeriodMs(uint8_t bmm150Odr)
+  static constexpr float odrSettingToPeriodMs(uint8_t bmm150Odr)
   {
     const float hz = odrSettingToHz(bmm150Odr);
     return hz > 0.0f ? (1000.0f / hz) : 0.0f;
