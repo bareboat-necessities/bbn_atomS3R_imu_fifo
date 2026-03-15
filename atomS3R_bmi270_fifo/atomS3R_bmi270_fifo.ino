@@ -93,7 +93,7 @@ void loop()
     imuSample.framesRead,
     imuSample.imuDeltaMs,
     magSample.valid ? 1U : 0U,
-    magSample.updated ? "" : "~",
+    magSample.updated ? "+" : "~",
     magSample.deltaMs,
     accNorth,
     accEast,
