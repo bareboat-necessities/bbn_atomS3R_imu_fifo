@@ -17,7 +17,7 @@ This repo contains an Arduino `.ino` project for reading BMI270 IMU data through
 - Acceleration is converted to SI units (`m/s^2`) before logging.
 - Gyroscope is logged in degrees/second (`dps`).
 - Magnetometer values are synchronized into BMI270 FIFO AUX payload bytes and decoded from the latest drained frame, then printed in microtesla (uT) using a simple LSB-to-uT scaling for bring-up/debug timing.
-- Loop pacing targets the IMU ODR (100 Hz) by sleeping only the remaining time in each 10 ms cycle, rather than a fixed `delay(5)`.
+- Loop pacing targets the IMU ODR (200 Hz) by sleeping only the remaining time in each 5 ms cycle, rather than a fixed `delay(5)`.
 
 ## Build target
 
