@@ -9,8 +9,8 @@ public:
   static constexpr uint8_t kDefaultI2cAddress = BMI2_I2C_PRIM_ADDR;
   static constexpr uint8_t kAlternateI2cAddress = BMI2_I2C_SEC_ADDR;
   static constexpr uint16_t kDefaultFifoWatermarkFrames = 20;
-  static constexpr uint8_t kDefaultAccelOdr = BMI2_ACC_ODR_100HZ;
-  static constexpr uint8_t kDefaultGyroOdr = BMI2_GYR_ODR_100HZ;
+  static constexpr uint8_t kDefaultAccelOdr = BMI2_ACC_ODR_200HZ;
+  static constexpr uint8_t kDefaultGyroOdr = BMI2_GYR_ODR_200HZ;
 
   struct Sample
   {
