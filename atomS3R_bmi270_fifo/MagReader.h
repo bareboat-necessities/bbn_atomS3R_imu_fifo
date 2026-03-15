@@ -11,6 +11,7 @@ public:
     int16_t x = 0;
     int16_t y = 0;
     int16_t z = 0;
+    bool valid = false;
     bool updated = false;
     float deltaMs = 0.0f;
   };
@@ -71,9 +72,17 @@ public:
   Sample readLatestSample(BMI270 &imu, uint32_t sampleTimestampMs)
   {
     Sample sample = lastSample;
+    sample.valid = hasLastMagSample;
+
+    float elapsedMs = 0.0f;
+    if (hasLastMagTimestamp && sampleTimestampMs >= lastMagTimestampMs)
+    {
+      elapsedMs = static_cast<float>(sampleTimestampMs - lastMagTimestampMs);
+    }
 
     if (imu.readAux(kBmm150DataXLsbReg, BMI2_AUX_NUM_BYTES) != BMI2_OK)
     {
+      sample.valid = false;
       sample.updated = false;
       sample.deltaMs = 0.0f;
       return sample;
@@ -87,20 +96,18 @@ public:
     const bool changed = !hasLastMagSample || magX != lastSample.x || magY != lastSample.y || magZ != lastSample.z;
     if (!changed)
     {
+      sample.valid = false;
       sample.updated = false;
-      sample.deltaMs = 0.0f;
+      sample.deltaMs = elapsedMs;
       return sample;
     }
 
     sample.x = magX;
     sample.y = magY;
     sample.z = magZ;
+    sample.valid = true;
     sample.updated = true;
-
-    if (hasLastMagTimestamp)
-    {
-      sample.deltaMs = static_cast<float>(sampleTimestampMs - lastMagTimestampMs);
-    }
+    sample.deltaMs = elapsedMs;
 
     hasLastMagTimestamp = true;
     hasLastMagSample = true;
